@@ -17,7 +17,7 @@ TARGET = 'target'
 TRAIN_URL = "C:\\Users\\Minh\\Downloads\\santander-customer-transaction-prediction\\train.csv"
 FINAL_URL = "C:\\Users\\Minh\\Downloads\\santander-customer-transaction-prediction\\test.csv"
 RESULT_URL = "C:\\Users\\Minh\\Downloads\\santander-customer-transaction-prediction\\result.csv"
-NROWS = 40000
+NROWS = 50000
 
 """
 PREPARING THE DATASET
@@ -25,12 +25,13 @@ PREPARING THE DATASET
 """
 
 
-dataset = pd.read_csv(TRAIN_URL, nrows = NROWS)
+dataset = pd.read_csv(TRAIN_URL)
+dataset = dataset.dropna()
 dataset.pop(KEY)
 
 dataset = dataset.sample(frac=1).reset_index(drop=True)
 
-train_dataset = dataset.sample(frac=0.8,random_state=0)
+train_dataset = dataset.sample(frac=1,random_state=0)
 test_dataset = dataset.drop(train_dataset.index)
 
 train_labels = train_dataset.pop(TARGET)
@@ -58,25 +59,18 @@ AND LAYER NORMALIZATIONS
 """
 
 def build_model():
-    model = keras.Sequential([
-        layers.Dense(50, 
-                     input_shape = [len(train_dataset.keys())],
-                     kernel_regularizer=regularizers.l1_l2(l1 = 1e-5, l2 = 1e-4),
-                     bias_regularizer=regularizers.l2(1e-4),
-                     activity_regularizer=regularizers.l2(1e-5)
-                     ),
+    model = Sequential([
+        layers.Dense(
+            50, input_shape=(test_dataset.shape[-1],),
+        ),
         layers.PReLU(alpha_initializer=tf.initializers.constant(0.25)),
         layers.LayerNormalization(),
-        layers.Dropout(rate = 0.5),
-        layers.Dense(50, 
-                     kernel_regularizer=regularizers.l1_l2(l1 = 1e-5, l2 = 1e-4),
-                     bias_regularizer=regularizers.l2(1e-4),
-                     activity_regularizer=regularizers.l2(1e-5)
-                     ),
+        layers.Dropout(0.5),
+        layers.Dense(50),
         layers.PReLU(alpha_initializer=tf.initializers.constant(0.25)),
         layers.LayerNormalization(),
-        layers.Dropout(rate = 0.5),
-        layers.Dense(1, activation = 'sigmoid')
+        layers.Dropout(0.5),
+        layers.Dense(1, activation="sigmoid"),
         ])
 
     metrics = [
@@ -115,6 +109,8 @@ print(
 weight_for_0 = 1.0 / counts[0]
 weight_for_1 = 1.0 / counts[1]
 
+
+
 class_weight = {0: weight_for_0, 1: weight_for_1}
 history = model.fit(
     train_dataset,
@@ -122,7 +118,7 @@ history = model.fit(
     batch_size=256,
     epochs=300,
     verbose=1,
-    callbacks = [keras.callbacks.EarlyStopping(monitor = 'val_auc', patience = 20)],
+    callbacks = [keras.callbacks.EarlyStopping(monitor = 'val_auc', patience = 10)],
     validation_split = 0.2,
     class_weight=class_weight,
 )
@@ -131,12 +127,6 @@ plt.plot(history.history["auc"], label="Training AUC")
 plt.plot(history.history["val_auc"], label="Validation AUC")
 plt.legend()
 plt.show()
-
-"""
-PLOTTING THE PREDICTION GRAPH
-
-"""
-
 
 
 """
